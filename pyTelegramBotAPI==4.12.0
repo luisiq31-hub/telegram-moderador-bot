@@ -1,0 +1,63 @@
+import telebot
+import os
+
+TOKEN = os.getenv("TOKEN")
+bot = telebot.TeleBot(TOKEN)
+
+malas_palabras = [
+    "puta", "putita", "putas", "putitas",
+    "perra", "perrita", "perritas"
+]
+
+avisos = {}  
+avisos_limite = 3
+baneados = set()
+
+@bot.message_handler(commands=['reiniciar'])
+def reiniciar(message):
+    avisos.clear()
+    bot.reply_to(message, "🔄 Se reinició el conteo de avisos.")
+
+@bot.message_handler(commands=['desbanear'])
+def desbanear(message):
+    baneados.clear()
+    bot.reply_to(message, "🔓 Todos los usuarios desbaneados.")
+
+@bot.message_handler(func=lambda m: True)
+def moderar(message):
+    if not message.text:
+        return
+
+    user = message.from_user.id
+    texto = message.text.lower()
+
+    # Si está baneado, borra sus mensajes automáticamente
+    if user in baneados:
+        bot.delete_message(message.chat.id, message.message_id)
+        return
+
+    # Detecta palabras ofensivas
+    for mala in malas_palabras:
+        if mala in texto:
+            avisos[user] = avisos.get(user, 0) + 1
+
+            # Se banea
+            if avisos[user] >= avisos_limite:
+                baneados.add(user)
+                bot.reply_to(
+                    message,
+                    f"🚫 Usuario baneado por insistir con palabras ofensivas.\n"
+                    f"Pedimos respeto hacia las chicas 🙏💙"
+                )
+                return
+
+            # Avíos 1, 2 y 3
+            bot.reply_to(
+                message,
+                f"⚠️ Aviso {avisos[user]}/{avisos_limite}:\n"
+                f"Evita usar esa palabra 🙏\n"
+                f"Es por respeto hacia las chicas del grupo 💙"
+            )
+            break
+
+bot.polling()
